@@ -1,0 +1,5 @@
+[[customizations.user]]
+name = "core"
+password = "core@123"
+key = "ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBAF63ycw/i3FkvW8BtGrkWLuS4iMTwVHwYhxi5XdTdNQAjQM70no4MOVuj6XCae0YjSYA75AzhtxJYPRviIDavFqlgDUXH8x1WIAYw77WAosSBi4ej+8SoH/Dlr0ICAp0EqLhKqhXBxLHLHCGkQjahEmbLdJKd7bKjmmIaA4PniKLdA8nw=="
+groups = ["wheel"]
