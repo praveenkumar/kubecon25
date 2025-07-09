@@ -8,6 +8,9 @@ ConditionPathExists=!/etc/kubernetes/pki/ca.crt
 Type=oneshot
 ExecStart=kubeadm init --config /etc/kubernetes/kubeadm-init.yaml
 ExecStartPost=kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f /etc/kubernetes/kube-flannel.yml
+ExecStartPost=/usr/bin/mkdir -p /home/core/.kube
+ExecStartPost=/usr/bin/cp /etc/kubernetes/admin.conf /home/core/.kube/config
+ExecStartPost=/usr/bin/chown -R core:core /home/core/.kube
 RemainAfterExit=yes
 
 [Install]
