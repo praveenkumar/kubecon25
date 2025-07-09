@@ -51,6 +51,10 @@ LABEL bootc.image-description="Kubernetes Control Plane Node Image"
 # If you want to pre-load kubeadm config or patches, copy them in:
 COPY kubeadm-init.yaml /etc/kubernetes/kubeadm-init.yaml
 COPY kube-flannel.yml /etc/kubernetes/kube-flannel.yml
+COPY kubeadm-init.service /etc/systemd/system/kubeadm-init.service
+
+# Enable the service
+RUN systemctl enable kubeadm-init.service
 
 # OCI-required config
 CMD [ "/sbin/init" ]
