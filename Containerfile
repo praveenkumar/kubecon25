@@ -15,6 +15,10 @@ EOF
 
 # sysctl param
 RUN mkdir -p /etc/modules-load.d && echo br_netfilter > /etc/modules-load.d/br_netfilter.conf
+RUN mkdir -p /etc/sysctl.d && \
+    tee /etc/sysctl.d/99-kubernetes-cri.conf <<EOF
+net.ipv4.ip_forward = 1
+EOF
 
 # make /opt mutable
 RUN rm -fr /opt && ln -sf var/opt /opt && mkdir /var/opt
