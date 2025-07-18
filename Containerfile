@@ -1,7 +1,7 @@
-FROM quay.io/fedora/fedora-bootc:42 as base
+FROM quay.io/fedora/fedora-bootc:42
 
 # Optional: label for bootc
-LABEL bootc = "true"
+LABEL bootc="true"
 
 # Setup kubernetes repo
 RUN tee /etc/yum.repos.d/kubernetes.repo > /dev/null <<EOF
