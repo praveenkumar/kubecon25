@@ -21,10 +21,25 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       
-    - name: Set up Podman
+    - name: Set up Homebrew
+      uses: Homebrew/actions/setup-homebrew@master
+
+    - name: Remove old executables
       run: |
-        sudo apt-get update
-        sudo apt-get install -y podman
+        # Remove the old crun executable to let brew to install a newer one ...
+        sudo apt-get remove crun
+
+    - name: Install podman and show dependencies
+      run: |
+        brew install podman
+        brew services start podman
+
+    - name: Display versions
+      run: |
+        podman -v
+        crun -v
+      
+        podman info
         
     - name: Build Container Image
       shell: bash
