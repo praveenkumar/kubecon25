@@ -27,6 +27,7 @@ jobs:
         sudo apt-get install -y podman
         
     - name: Build Container Image
+      shell: bash
       run: |
         sudo podman build -t my-k8s-control-plane -f Containerfile .
         
