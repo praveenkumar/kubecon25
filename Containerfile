@@ -38,7 +38,8 @@ RUN rpm-ostree install \
         ethtool \
         conntrack-tools \
         cri-tools && \
-    rpm-ostree cleanup -m
+    rpm-ostree cleanup -m && \
+    rm -f /etc/yum.repos.d/kubernetes.repo
 
 # Enable required services
 RUN systemctl enable kubelet \
