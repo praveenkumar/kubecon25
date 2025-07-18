@@ -4,7 +4,7 @@ FROM quay.io/fedora/fedora-bootc:42 as base
 LABEL bootc = "true"
 
 # Setup kubernetes repo
-RUN cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
+RUN cat <<EOF > /etc/yum.repos.d/kubernetes.repo
 [kubernetes]
 name=Kubernetes
 baseurl=https://pkgs.k8s.io/core:/stable:/v1.32/rpm/
