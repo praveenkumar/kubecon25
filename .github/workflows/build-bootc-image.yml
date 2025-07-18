@@ -9,7 +9,17 @@ on:
 
 jobs:
   build-bootc-image:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            tier2: true
     defaults:
       run:
         shell: bash
@@ -20,6 +30,10 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+    
+    - name: Install Homebrew for arm64
+      if: matrix.tier2
+      run: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
       
     - name: Set up Homebrew
       uses: Homebrew/actions/setup-homebrew@master
@@ -31,7 +45,11 @@ jobs:
 
     - name: Install podman and show dependencies
       run: |
-        brew install podman
+        if [[ "${{ matrix.tier2 }}" == "true" ]]; then
+          brew install --build-from-source podman
+        else
+          brew install podman
+        fi
         brew services start podman
 
     - name: Display versions
@@ -44,8 +62,8 @@ jobs:
     - name: Build Container Image
       shell: bash
       run: |
-        podman build -t my-k8s-control-plane -f Containerfile .
-        podman image save -o my-k8s-control-plane.tar localhost/my-k8s-control-plane:latest
+        podman build --platform ${{ matrix.platform }} -t my-k8s-control-plane-${{ matrix.arch }} -f Containerfile .
+        podman image save -o my-k8s-control-plane-${{ matrix.arch }}.tar localhost/my-k8s-control-plane-${{ matrix.arch }}:latest
         
     - name: Prepare Output Directory
       run: |
@@ -53,7 +71,7 @@ jobs:
                
     - name: Build Bootc QCOW2 Image
       run: |
-        sudo podman load -i my-k8s-control-plane.tar
+        sudo podman load -i my-k8s-control-plane-${{ matrix.arch }}.tar
         sudo podman run --rm --privileged \
           --pull=newer \
           --security-opt label=type:unconfined_t \
@@ -64,17 +82,17 @@ jobs:
           --type qcow2 \
           --use-librepo=True \
           --rootfs btrfs \
-          localhost/my-k8s-control-plane:latest
+          localhost/my-k8s-control-plane-${{ matrix.arch }}:latest
           
     - name: List output files
       run: |
-        echo "Generated files:"
+        echo "Generated files for ${{ matrix.arch }}:"
         find output/ -type f -ls
         
     - name: Upload Bootc Image Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: bootc-k8s-control-plane-qcow2
+        name: bootc-k8s-control-plane-qcow2-${{ matrix.arch }}
         path: output/
         retention-days: 30
         
@@ -84,13 +102,13 @@ jobs:
         
     - name: Tag and Push Container Image
       run: |
-        # Tag the image for GitHub Container Registry
-        podman tag localhost/my-k8s-control-plane:latest ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest
-        podman tag localhost/my-k8s-control-plane:latest ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}
+        # Tag the image for GitHub Container Registry with architecture suffix
+        podman tag localhost/my-k8s-control-plane-${{ matrix.arch }}:latest ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest-${{ matrix.arch }}
+        podman tag localhost/my-k8s-control-plane-${{ matrix.arch }}:latest ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}-${{ matrix.arch }}
         
         # Push both tags
-        podman push ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest
-        podman push ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}
+        podman push ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest-${{ matrix.arch }}
+        podman push ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}-${{ matrix.arch }}
 
     - name: Setup tmate session for debugging
       if: failure()
@@ -98,3 +116,29 @@ jobs:
       with:
         limit-access-to-actor: true
         timeout-minutes: 30
+
+  create-multiarch-manifest:
+    needs: build-bootc-image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - name: Login to GitHub Container Registry
+      run: |
+        echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
+    
+    - name: Create and Push Multi-arch Manifest
+      run: |
+        # Create multi-arch manifest for latest tag
+        podman manifest create ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest
+        podman manifest add ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest-amd64
+        podman manifest add ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest-arm64
+        podman manifest push ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest
+        
+        # Create multi-arch manifest for commit SHA tag
+        podman manifest create ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}
+        podman manifest add ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}-amd64
+        podman manifest add ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}-arm64
+        podman manifest push ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}
