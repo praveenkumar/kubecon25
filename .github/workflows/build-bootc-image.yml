@@ -74,3 +74,10 @@ jobs:
         # Push both tags
         sudo podman push ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest
         sudo podman push ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}
+
+    - name: Setup tmate session for debugging
+      if: failure()
+      uses: mxschmitt/action-tmate@v3
+      with:
+        limit-access-to-actor: true
+        timeout-minutes: 30
