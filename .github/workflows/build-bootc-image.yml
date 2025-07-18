@@ -1,0 +1,72 @@
+name: Build Bootc Kubernetes Control Plane Image
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-bootc-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Podman
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y podman
+        
+    - name: Build Container Image
+      run: |
+        sudo podman build -t my-k8s-control-plane -f Containerfile .
+        
+    - name: Prepare Output Directory
+      run: |
+        rm -rf output/ && mkdir -p output
+               
+    - name: Build Bootc QCOW2 Image
+      run: |
+        sudo podman run --rm -it --privileged \
+          --pull=newer \
+          --security-opt label=type:unconfined_t \
+          -v ./config.toml:/config.toml:ro \
+          -v ./output:/output \
+          -v /var/lib/containers/storage:/var/lib/containers/storage \
+          quay.io/centos-bootc/bootc-image-builder:latest \
+          --type qcow2 \
+          --use-librepo=True \
+          --rootfs btrfs \
+          localhost/my-k8s-control-plane:latest
+          
+    - name: List output files
+      run: |
+        echo "Generated files:"
+        find output/ -type f -ls
+        
+    - name: Upload Bootc Image Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: bootc-k8s-control-plane-qcow2
+        path: output/
+        retention-days: 30
+        
+    - name: Login to GitHub Container Registry
+      run: |
+        echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u ${{ github.actor }} --password-stdin
+        
+    - name: Tag and Push Container Image
+      run: |
+        # Tag the image for GitHub Container Registry
+        sudo podman tag localhost/my-k8s-control-plane:latest ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest
+        sudo podman tag localhost/my-k8s-control-plane:latest ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}
+        
+        # Push both tags
+        sudo podman push ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest
+        sudo podman push ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}
