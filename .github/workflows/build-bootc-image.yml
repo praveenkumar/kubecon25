@@ -65,6 +65,17 @@ jobs:
         podman build --platform ${{ matrix.platform }} -t my-k8s-control-plane-${{ matrix.arch }} -f Containerfile .
         podman image save -o my-k8s-control-plane-${{ matrix.arch }}.tar localhost/my-k8s-control-plane-${{ matrix.arch }}:latest
         
+    - name: Get Kubelet Version
+      id: kubelet-version
+      shell: bash
+      run: |
+        # Extract kubelet version from the built image
+        KUBELET_VERSION=$(podman run --rm localhost/my-k8s-control-plane-${{ matrix.arch }}:latest kubelet --version | awk '{print $2}')
+        echo "Kubelet version: $KUBELET_VERSION"
+        
+        # Also set as environment variable for this job
+        echo "KUBELET_VERSION=$KUBELET_VERSION" >> $GITHUB_ENV
+        
     - name: Prepare Output Directory
       run: |
         rm -rf output/ && mkdir -p output
@@ -105,10 +116,12 @@ jobs:
         # Tag the image for GitHub Container Registry with architecture suffix
         podman tag localhost/my-k8s-control-plane-${{ matrix.arch }}:latest ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest-${{ matrix.arch }}
         podman tag localhost/my-k8s-control-plane-${{ matrix.arch }}:latest ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}-${{ matrix.arch }}
+        podman tag localhost/my-k8s-control-plane-${{ matrix.arch }}:latest ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:"${KUBELET_VERSION}"-${{ matrix.arch }}
         
-        # Push both tags
+        # Push all tags
         podman push ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest-${{ matrix.arch }}
         podman push ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}-${{ matrix.arch }}
+        podman push ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:"${KUBELET_VERSION}"-${{ matrix.arch }}
 
     - name: Setup tmate session for debugging
       if: failure()
@@ -131,6 +144,9 @@ jobs:
     
     - name: Create and Push Multi-arch Manifest
       run: |
+        # Get kubelet version from one of the jobs (they should be the same)
+        KUBELET_VERSION=$(podman run --rm ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest-amd64 kubelet --version | awk '{print $2}')
+        
         # Create multi-arch manifest for latest tag
         podman manifest create ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest
         podman manifest add ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:latest-amd64
@@ -142,3 +158,9 @@ jobs:
         podman manifest add ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}-amd64
         podman manifest add ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}-arm64
         podman manifest push ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:${{ github.sha }}
+        
+        # Create multi-arch manifest for kubelet version tag
+        podman manifest create ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:$KUBELET_VERSION
+        podman manifest add ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:$KUBELET_VERSION ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:$KUBELET_VERSION-amd64
+        podman manifest add ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:$KUBELET_VERSION ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:$KUBELET_VERSION-arm64
+        podman manifest push ghcr.io/${{ github.repository_owner }}/my-k8s-control-plane:$KUBELET_VERSION
