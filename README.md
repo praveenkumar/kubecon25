@@ -36,7 +36,9 @@ rm -fr output/ && mkdir output
 
 ## 📦 3. Build the Bootc Image (QCOW2)
 
-Use `bootc-image-builder` to generate a QCOW2 virtual disk image.
+Use `bootc-image-builder` to generate a QCOW2 virtual disk image. 
+**Note:** In case of fedora use `--rootfs btrfs` otherwise use `--rootfs xfs`
+- https://github.com/osbuild/bootc-image-builder?tab=readme-ov-file#detailed-description-of-optional-flags
 
 ```bash
 sudo podman run --rm -it --privileged \
@@ -96,10 +98,25 @@ ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null core@192.168.124
 Once inside the VM:
 
 ```bash
-sudo kubeadm init --config /etc/kubernetes/kubeadm-init.yaml
+kubectl get pods -A
 ```
 
 ---
+
+
+---
+
+## 🔄 8. Rollback and Update the System with `bootc`
+
+You can manage system updates and rollbacks inside the VM using the `bootc` tool.
+- https://bootc-dev.github.io/bootc/upgrades.html
+
+### Check for Updates
+```
+sudo bootc status
+```
+
+
 
 ## 📝 Files Overview
 
@@ -122,6 +139,6 @@ ssh-authorized-keys = ["ssh-ed25519 AAAA..."]
 
 ## 📚 Resources
 
-- [bootc documentation](https://coreos.github.io/bootc/)
-- [bootc-image-builder](https://github.com/containers/bootc-image-builder)
+- [bootc documentation](https://bootc-dev.github.io/bootc)
+- [bootc-image-builder](https://osbuild.org/docs/bootc/)
 - [Kubernetes kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
