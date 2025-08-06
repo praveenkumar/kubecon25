@@ -2,6 +2,8 @@
 
 This project demonstrates how to build a [bootc](https://coreos.github.io/bootc/) image using a custom container image that includes Kubernetes control plane components, and boot it as a virtual machine using `virt-install`.
 
+![](kubeconDemo.gif)
+
 ## 🔧 Requirements
 
 - Fedora or RHEL-based host
